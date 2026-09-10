@@ -609,17 +609,30 @@ async function gravarChave(chave,valor){
  * Essa tabela é somente-acréscimo: nada no sistema apaga linha dela.
  * Por isso ela é a fonte de verdade — se a relação (chave 'crew') for
  * sobrescrita por engano ou por outro sistema, o quadro se remonta sozinho.
+ *
+ * Busca em ORDEM DECRESCENTE (mais recente primeiro) e para de resolver o
+ * status assim que acha o primeiro 'saida'/'entrada' de cada pessoa. Tinha
+ * sido escrito em ordem crescente com limit=20000 esperando trazer tudo,
+ * mas o PostgREST do Supabase tem um teto de 1000 linhas por resposta
+ * (db-max-rows) e ignora limit maior que isso — com a tabela passando de
+ * 1000 linhas, as movimentações mais recentes de todo mundo ficavam de
+ * fora, e o quadro voltava sozinho para um status antigo. Do fim para o
+ * começo isso não acontece: as primeiras 1000 linhas (as mais novas) são
+ * exatamente as que decidem o status atual de cada um.
  */
 async function statusPorMovimentos(){
-  const linhas=await sb('bordo_movimentos?select=militar_id,nip,acao,motivo,por,ts&order=ts.asc&limit=20000');
+  const linhas=await sb('bordo_movimentos?select=militar_id,nip,acao,motivo,por,ts&order=ts.desc&limit=5000');
   const porId={}, porNip={};
   const acumula=(bolsa,chave,r)=>{
     if(!chave)return;
-    const atual=bolsa[chave]||(bolsa[chave]={status:null,desde:null,motivo:'',por:''});
-    if(r.acao==='saida'){atual.status='terra';}
-    else if(r.acao==='entrada'){atual.status='bordo';}
-    /* 'ajuste' troca só o motivo e mantém o status vigente */
-    atual.desde=new Date(r.ts).getTime();atual.motivo=r.motivo||'';atual.por=r.por||'';
+    const atual=bolsa[chave]||(bolsa[chave]={status:null,desde:null,motivo:'',por:'',resolvido:false});
+    if(atual.desde===null){          /* primeira vez que vemos esta pessoa = o registro mais recente dela */
+      atual.desde=new Date(r.ts).getTime();atual.motivo=r.motivo||'';atual.por=r.por||'';
+    }
+    if(!atual.resolvido){            /* 'ajuste' não define status: continua olhando pra trás até achar um que defina */
+      if(r.acao==='saida'){atual.status='terra';atual.resolvido=true;}
+      else if(r.acao==='entrada'){atual.status='bordo';atual.resolvido=true;}
+    }
   };
   (linhas||[]).forEach(r=>{acumula(porId,r.militar_id,r);acumula(porNip,r.nip,r);});
   return {porId,porNip};
