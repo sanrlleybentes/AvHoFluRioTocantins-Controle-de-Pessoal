@@ -32,9 +32,11 @@ body{margin:0;background:transparent;
 button{font:inherit;color:inherit;cursor:pointer}
 input,select,textarea{font:inherit}
 
-/* ---- fundo com parallax + véu claro ---- */
-#bgLayer{position:fixed;inset:-60px;background-size:cover;background-position:center;
-  background-repeat:no-repeat;filter:opacity(.32);z-index:-2;will-change:transform}
+/* fundo (#bgLayer) é fixed puro, sem parallax: o deslocamento em scroll
+   arrastava a imagem além da margem de -60px e abria área em branco no
+   topo em páginas longas. */
+#bgLayer{position:fixed;inset:0;background-size:cover;background-position:center;
+  background-repeat:no-repeat;filter:opacity(.32);z-index:-2}
 #bgOverlay{position:fixed;inset:0;z-index:-1;background:rgba(243,246,244,.14)}
 @media (prefers-reduced-motion:reduce){#bgLayer{transform:none !important}}
 
@@ -668,18 +670,9 @@ function tick(){const d=new Date();$('#clkTime').textContent=pad(d.getHours())+'
   $('#clkDate').textContent=d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});}
 setInterval(tick,10000);tick();
 
-/* ---- fundo com leve parallax ao rolar ---- */
-(function(){
-  const camada=document.getElementById('bgLayer');
-  if(!camada||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  let pedido=false;
-  function aplica(){
-    const y=window.scrollY||document.documentElement.scrollTop||0;
-    camada.style.transform='translateY('+Math.round(y*0.15)+'px)';
-    pedido=false;
-  }
-  window.addEventListener('scroll',()=>{if(!pedido){pedido=true;requestAnimationFrame(aplica);}},{passive:true});
-})();
+/* fundo (#bgLayer) é fixed puro, sem parallax: o deslocamento em scroll
+   arrastava a imagem além da margem de -60px e abria área em branco no
+   topo em páginas longas. */
 
 /* ---- números do efetivo contando ao mudar, sem animar quando o valor é o mesmo ---- */
 function animaNum(el,novo,casas){
