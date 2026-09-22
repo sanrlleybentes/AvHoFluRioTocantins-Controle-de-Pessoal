@@ -359,7 +359,7 @@ td.mono{font-family:var(--mono);font-size:12px;white-space:nowrap}
         <button class="btn" id="btnPrint">Gerar PDF</button>
         <button class="btn ghost" id="btnCsv">Baixar planilha (CSV)</button>
       </div>
-      <p class="hint">“Gerar PDF” baixa o arquivo pronto, no modelo do navio. Ele sai <b>sem assinatura</b> — assine depois no assinador digital (gov.br, Assinador SERPRO ou o certificado da OM). A folha de assinatura já vem com nome, posto, cargo e a marca <b>ASSINADO DIGITALMENTE</b>.</p>
+      <p class="hint">“Gerar PDF” baixa o arquivo pronto, no modelo do navio. Ele sai <b>sem assinatura</b> — assine depois no assinador digital (gov.br, Assinador SERPRO ou o certificado da OM). A folha de assinatura já vem com nome, posto e cargo.</p>
     </div>
   </section>
 
@@ -1437,15 +1437,33 @@ function tituloPdf(D,y,titulo,sub){
   D.txt(sub,105,y+7,{size:10.5,align:'center'});
   return y+14;
 }
+/* Só o nome de guerra vai em negrito na linha da assinatura — o resto do
+   nome completo (e o nome inteiro, quando não acha o de guerra dentro
+   dele) fica em peso normal. Como Pdf.prototype.txt não mistura fonte
+   dentro de uma linha só, desenha em até três pedaços (antes/guerra/depois)
+   lado a lado, calculando a largura de cada um pra a linha inteira
+   continuar centralizada como antes. */
 function assinaturaPdf(D,y){
   y=D.espaco((y||60)+30,34);        /* 4 espaços de parágrafo para a assinatura do gov.br */
   const x=all().find(v=>v.id===$('#xAut').value);
   const nome=x?(x.completo||x.nome):'____________________';
+  const guerra=x?(x.nome||''):'';
   const posto=$('#xAutPosto').value.trim()||(x?extenso(x.posto):'');
-  D.txt(nome,105,y,{size:12,font:'F2',align:'center'});y+=6;
+  const idx=guerra?nome.toUpperCase().indexOf(guerra.toUpperCase()):-1;
+  const size=12;
+  if(idx>=0){
+    const antes=nome.slice(0,idx), meio=nome.slice(idx,idx+guerra.length), depois=nome.slice(idx+guerra.length);
+    const total=larguraTxt(nome,size);
+    let X=105-total/2;
+    if(antes){D.txt(antes,X,y,{size,align:'left'});X+=larguraTxt(antes,size);}
+    D.txt(meio,X,y,{size,font:'F2',align:'left'});X+=larguraTxt(meio,size);
+    if(depois)D.txt(depois,X,y,{size,align:'left'});
+  }else{
+    D.txt(nome,105,y,{size,font:'F2',align:'center'});
+  }
+  y+=6;
   D.txt(posto,105,y,{size:12,align:'center'});y+=6;
-  D.txt($('#xAutCargo').value.trim(),105,y,{size:12,align:'center'});y+=14;
-  D.txt('ASSINADO DIGITALMENTE',105,y,{size:12,font:'F2',align:'center'});
+  D.txt($('#xAutCargo').value.trim(),105,y,{size:12,align:'center'});
 }
 function pdfPresenca(D,mode,val,ev){
   let y=tituloPdf(D,cabecalhoPdf(D),'Controle de presença e movimentação de pessoal',periodoTexto(mode,val));
