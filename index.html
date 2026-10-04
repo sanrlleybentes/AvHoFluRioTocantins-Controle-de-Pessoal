@@ -899,6 +899,8 @@ async function load(first){
 const ACESSO_URL=SB_URL+'/functions/v1/acesso';
 const SESSAO_KEY='sigabSessao', PERFIL_KEY='sigabPerfil', RAPIDO_KEY='sigabRapido', GEO_KEY='quantocaGeo';
 const P_TABS=['hist','export','setup','banco'];
+/* cada área protegida serve a quem EDITA o módulo dela; ter o 2FA não basta */
+const MOD_TAB={hist:['historico','Histórico e Exportar'],export:['historico','Histórico e Exportar'],setup:['pessoal','Pessoal e Banco de dados'],banco:['pessoal','Pessoal e Banco de dados']};
 let MODO=null, PERFIL=null, RAPIDO=[], TFA_ATE=0;
 function lsLe(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
 function lsGrava(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -944,7 +946,8 @@ function podeQuadro(){
 }
 function podePessoal(){return MODO==='conta'&&!!PERFIL&&PERFIL.status==='aprovado'&&(PERFIL.admin||permEdita('pessoal'));}
 function tfaValido(){return MODO==='conta'&&Date.now()<TFA_ATE-5000;}
-function tabAberta(){return P_TABS.indexOf(TAB)<0||tfaValido();}
+function permAba(tab){return !MOD_TAB[tab]||(MODO==='conta'&&!!PERFIL&&(PERFIL.admin||permEdita(MOD_TAB[tab][0])));}
+function tabAberta(){return P_TABS.indexOf(TAB)<0||(tfaValido()&&permAba(TAB));}
 let AVISO_PERM=0;
 function avisaSemPermissao(modulo){
   if(Date.now()-AVISO_PERM<6000)return; AVISO_PERM=Date.now();
@@ -1009,6 +1012,10 @@ function liberaTab(){
   if(MODO==='rapido'||!PERFIL||PERFIL.status!=='aprovado'){
     travaMostra('<div class="g-tit" style="font-size:16px">Área restrita</div><p class="g-txt">O acesso rápido não entra em Histórico, Exportar, Pessoal e Banco de dados. Entre com sua conta aprovada.</p><button class="g-btn" id="tvEntrar">Entrar com conta</button>'+volta);
     $('#tvEntrar').onclick=sairDaConta; ligaVolta(); return false;
+  }
+  if(!permAba(TAB)){
+    travaMostra('<div class="g-tit" style="font-size:16px">Área restrita</div><p class="g-txt">Esta área só abre para quem <b>edita o módulo '+MOD_TAB[TAB][1]+'</b>. O 2FA sozinho não basta: peça ao Imediato.</p>'+volta);
+    ligaVolta(); return false;
   }
   if(tfaValido()){t.classList.add('hidden');return true;}
   const sem=!(PERFIL.tfa&&PERFIL.tfa.confirmado);
