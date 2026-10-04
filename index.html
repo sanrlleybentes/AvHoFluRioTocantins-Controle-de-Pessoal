@@ -485,8 +485,10 @@ td.mono{font-family:var(--mono);font-size:12px;white-space:nowrap}
       <div class="row" style="margin-top:16px">
         <button class="btn" id="btnPrint">Gerar PDF</button>
         <button class="btn ghost" id="btnCsv">Baixar planilha (CSV)</button>
+        <button class="btn ghost" id="btnLaudo">Laudo de integridade (PDF)</button>
       </div>
       <p class="hint">“Gerar PDF” baixa o arquivo pronto, no modelo do navio. Ele sai <b>sem assinatura</b> — assine depois no assinador digital (gov.br, Assinador SERPRO ou o certificado da OM). A folha de assinatura já vem com nome, posto e cargo.</p>
+      <p class="hint">O <b>laudo de integridade</b> é um PDF à parte: prova que os registros do período escolhido não foram alterados. Ele refaz no aparelho a conta de cada registro (SHA-256), confere o encadeamento até a âncora gravada fora do banco (GitHub + carimbo público OpenTimestamps) e explica como um perito confere sozinho. Registros feitos depois das 23:00 só entram na âncora da noite seguinte.</p>
     </div>
   </section>
 
@@ -1802,13 +1804,58 @@ function quebra(s,size,largMm){
   if(atual)linhas.push(atual);
   return linhas;
 }
+const WIN_ANSI_EXTRA={'\u2014':'\x97','\u2013':'\x96','\u2026':'\x85','\u201C':'\x93','\u201D':'\x94','\u2018':'\x91','\u2019':'\x92','\u2022':'\x95'};
 function escPdf(s){
   let out='';
   for(const ch of String(s==null?'':s)){
-    const l=ch.charCodeAt(0)<256?ch:'?';
+    const l=ch.charCodeAt(0)<256?ch:(WIN_ANSI_EXTRA[ch]||'?');
     out+=(l==='\\'||l==='('||l===')')?('\\'+l):l;
   }
   return out;
+}
+const W_TIMES={' ':250,'!':333,'"':408,'#':500,'$':500,'%':833,'&':778,"'":180,'(':333,')':333,'*':500,'+':564,
+  ',':250,'-':333,'.':250,'/':278,'0':500,'1':500,'2':500,'3':500,'4':500,'5':500,'6':500,'7':500,'8':500,'9':500,
+  ':':278,';':278,'<':564,'=':564,'>':564,'?':444,'@':921,
+  'A':722,'B':667,'C':667,'D':722,'E':611,'F':556,'G':722,'H':722,'I':333,'J':389,'K':722,'L':611,'M':889,
+  'N':722,'O':722,'P':556,'Q':722,'R':667,'S':556,'T':611,'U':722,'V':722,'W':944,'X':722,'Y':722,'Z':611,
+  '[':333,'\\':278,']':333,'^':469,'_':500,'`':333,
+  'a':444,'b':500,'c':444,'d':500,'e':444,'f':333,'g':500,'h':500,'i':278,'j':278,'k':500,'l':278,'m':778,
+  'n':500,'o':500,'p':500,'q':500,'r':333,'s':389,'t':278,'u':500,'v':500,'w':722,'x':500,'y':500,'z':444,
+  '{':480,'|':200,'}':480,'~':541,
+  'À':722,'Á':722,'Â':722,'Ã':722,'Ä':722,'Ç':667,'È':611,'É':611,'Ê':611,'Ë':611,'Ì':333,'Í':333,'Î':333,'Ï':333,
+  'Ñ':722,'Ò':722,'Ó':722,'Ô':722,'Õ':722,'Ö':722,'Ù':722,'Ú':722,'Û':722,'Ü':722,'Ý':722,
+  'à':444,'á':444,'â':444,'ã':444,'ä':444,'ç':444,'è':444,'é':444,'ê':444,'ë':444,'ì':278,'í':278,'î':278,'ï':278,
+  'ñ':500,'ò':500,'ó':500,'ô':500,'õ':500,'ö':500,'ù':500,'ú':500,'û':500,'ü':500,'ý':500,'ÿ':500,'º':400,'ª':370};
+const W_TIMES_BOLD={' ':250,'!':333,'"':555,'#':500,'$':500,'%':1000,'&':833,"'":278,'(':333,')':333,'*':500,'+':570,
+  ',':250,'-':333,'.':250,'/':278,'0':500,'1':500,'2':500,'3':500,'4':500,'5':500,'6':500,'7':500,'8':500,'9':500,
+  ':':333,';':333,'<':570,'=':570,'>':570,'?':500,'@':930,
+  'A':722,'B':667,'C':667,'D':722,'E':667,'F':611,'G':778,'H':778,'I':389,'J':500,'K':778,'L':667,'M':944,
+  'N':778,'O':778,'P':611,'Q':778,'R':722,'S':556,'T':667,'U':778,'V':722,'W':1000,'X':722,'Y':722,'Z':667,
+  '[':333,'\\':278,']':333,'^':581,'_':500,'`':333,
+  'a':500,'b':556,'c':444,'d':556,'e':444,'f':333,'g':500,'h':556,'i':278,'j':333,'k':556,'l':278,'m':833,
+  'n':556,'o':556,'p':556,'q':556,'r':444,'s':389,'t':333,'u':556,'v':500,'w':722,'x':500,'y':500,'z':444,
+  '{':394,'|':220,'}':394,'~':520,
+  'À':722,'Á':722,'Â':722,'Ã':722,'Ä':722,'Ç':667,'È':667,'É':667,'Ê':667,'Ë':667,'Ì':389,'Í':389,'Î':389,'Ï':389,
+  'Ñ':778,'Ò':778,'Ó':778,'Ô':778,'Õ':778,'Ö':778,'Ù':778,'Ú':778,'Û':778,'Ü':778,'Ý':722,
+  'à':500,'á':500,'â':500,'ã':500,'ä':500,'ç':444,'è':444,'é':444,'ê':444,'ë':444,'ì':278,'í':278,'î':278,'ï':278,
+  'ñ':556,'ò':556,'ó':556,'ô':556,'õ':556,'ö':556,'ù':556,'ú':556,'û':556,'ü':556,'ý':500,'ÿ':500,'º':400,'ª':370};
+/* largura real (mm) de um texto em Times; usada só no laudo, para poder justificar */
+function larguraAfm(s,size,negrito){
+  const tab=negrito?W_TIMES_BOLD:W_TIMES; let w=0;
+  for(const ch of String(s==null?'':s))w+=(tab[ch]!==undefined?tab[ch]:500);
+  return w*size/1000/MM;
+}
+function quebraAfm(s,size,largMm,negrito){
+  const palavras=String(s==null?'':s).split(/\s+/).filter(Boolean);
+  if(!palavras.length)return [''];
+  const linhas=[];let atual='';
+  palavras.forEach(p=>{
+    const teste=atual?atual+' '+p:p;
+    if(larguraAfm(teste,size,negrito)<=largMm||!atual)atual=teste;
+    else{linhas.push(atual);atual=p;}
+  });
+  if(atual)linhas.push(atual);
+  return linhas;
 }
 function Pdf(){this.paginas=[];this.novaPagina();}
 Pdf.prototype.novaPagina=function(){this.ops=[];this.paginas.push(this.ops);};
@@ -1819,6 +1866,15 @@ Pdf.prototype.txt=function(s,x,y,o){
   if(o.align==='center')X=x-larguraTxt(s,size)/2;
   if(o.align==='right')X=x-larguraTxt(s,size);
   this.ops.push('BT /'+f+' '+size+' Tf '+(X*MM).toFixed(2)+' '+((PGH-y)*MM).toFixed(2)+' Td ('+escPdf(s)+') Tj ET');
+};
+/* linha justificada: estica só os espaços até a largura pedida (operador Tw do PDF) */
+Pdf.prototype.txtJust=function(s,x,y,largMm,o){
+  o=o||{};
+  const size=o.size||10, f=o.font||'F1';
+  const n=(String(s).match(/ /g)||[]).length;
+  const extra=n?Math.max(0,(largMm-larguraAfm(s,size,f==='F2'))/n):0;
+  this.ops.push('BT /'+f+' '+size+' Tf '+(x*MM).toFixed(2)+' '+((PGH-y)*MM).toFixed(2)+' Td '+
+    (extra*MM).toFixed(3)+' Tw ('+escPdf(s)+') Tj 0 Tw ET');
 };
 Pdf.prototype.caixa=function(x,y,w,h,cinza){
   if(cinza!=null)this.ops.push(cinza.toFixed(2)+' g '+(x*MM).toFixed(2)+' '+((PGH-y-h)*MM).toFixed(2)+' '+
@@ -2005,6 +2061,182 @@ $('#btnPrint').onclick=async()=>{
     toast('Falhou ao montar o documento: '+(err&&err.message?err.message:'erro'),true);
   }finally{btn.disabled=false;btn.textContent=rot;}
 };
+
+/* ═══════════ LAUDO DE INTEGRIDADE (fase 4) ═══════════
+   Documento separado do controle de presença. Prova que os registros do período estão
+   íntegros: refaz no aparelho o SHA-256 de cada registro (mesmo texto canônico que o banco
+   usa em hash_movimento), confere o encadeamento até a cabeça gravada na âncora diária do
+   GitHub (carimbada no OpenTimestamps) e diz como um perito confere sem depender de nós. */
+const ANCORA_RAW='https://raw.githubusercontent.com/sanrlleybentes/AvHoFluRioTocantins-Controle-de-Pessoal/main/ancoras/';
+const ANCORA_WEB='https://github.com/sanrlleybentes/AvHoFluRioTocantins-Controle-de-Pessoal/tree/main/ancoras';
+const CAMPOS_HASH=['militar_id','posto','nip','completo','nome','grupo','om','acao','motivo','por','obs'];
+/* ts do banco ("…:42.516+00:00") no formato do hash ("…:42.516000Z") */
+function tsCanonico(t){
+  const m=String(t||'').match(/^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)$/);
+  if(!m)throw new Error('data em formato inesperado: '+t);
+  if(m[3]!=='Z'&&m[3]!=='+00:00'){          /* não deveria acontecer: o banco devolve em UTC */
+    const d=new Date(t); return d.toISOString().slice(0,19)+'.'+String((m[2]||'').padEnd(6,'0')).slice(0,6)+'Z';
+  }
+  return m[1]+'.'+(m[2]||'').padEnd(6,'0').slice(0,6)+'Z';
+}
+function textoCanonico(r){
+  return [r.hash_anterior||'',String(r.seq),String(r.id),tsCanonico(r.ts)].concat(CAMPOS_HASH.map(k=>r[k]==null?'':String(r[k]))).join('|');
+}
+async function sha256hex(txt){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function jsonOrdenado(v){
+  if(Array.isArray(v))return '['+v.map(jsonOrdenado).join(',')+']';
+  if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+jsonOrdenado(v[k])).join(',')+'}';
+  return JSON.stringify(v);
+}
+async function movimentosPorSeq(de,ate){
+  const out=[];
+  for(let off=0;;off+=1000){
+    const l=await sb('bordo_movimentos?select=*&seq=gte.'+de+'&seq=lte.'+ate+'&order=seq.asc&limit=1000&offset='+off);
+    out.push(...(l||[])); if(!l||l.length<1000)break;
+  }
+  return out;
+}
+async function lerAncora(iso){
+  try{
+    const r=await fetch(ANCORA_RAW+iso.slice(0,4)+'/'+iso+'.json',{cache:'no-store'});
+    if(!r.ok)return null;
+    const a=await r.json(); a.__arquivo=iso.slice(0,4)+'/'+iso+'.json'; return a;
+  }catch(e){return null;}
+}
+function addDiaIso(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return ymd(d);}
+/* quebra por caractere (hash e texto canônico não têm espaços) */
+function quebraDura(s,size,larg){
+  const out=[];let atual='';
+  for(const ch of String(s)){ if(larguraTxt(atual+ch,size)>larg&&atual){out.push(atual);atual=ch;} else atual+=ch; }
+  if(atual)out.push(atual); return out.length?out:[''];
+}
+async function montaLaudo(mode,val){
+  /* 1) registros do período, completos (com seq e hashes) */
+  const de=new Date(mode==='dia'?val+'T00:00:00':val+'-01T00:00:00'), ate=new Date(de);
+  if(mode==='dia')ate.setDate(ate.getDate()+1); else ate.setMonth(ate.getMonth()+1);
+  const per=await sb('bordo_movimentos?select=*&ts=gte.'+encodeURIComponent(de.toISOString())+
+    '&ts=lt.'+encodeURIComponent(ate.toISOString())+'&order=seq.asc&limit=1000')||[];
+  /* registro de referência: o último até o fim do período (prova também a ausência de registros) */
+  const ult=await sb('bordo_movimentos?select=seq&ts=lt.'+encodeURIComponent(ate.toISOString())+'&order=seq.desc&limit=1');
+  const seqFim=per.length?per[per.length-1].seq:((ult&&ult[0]&&ult[0].seq)||0);
+  const seqIni=per.length?per[0].seq:seqFim;
+  /* 2) a primeira âncora que cobre o fim do período */
+  let anc=null; const fimIso=ymd(new Date(ate.getTime()-1)), hojeIso=ymd(new Date());
+  for(let d=fimIso,k=0;d<=hojeIso&&k<120;d=addDiaIso(d,1),k++){
+    const a=await lerAncora(d);
+    if(a&&a.movimentos&&a.movimentos.cabeca_seq>=seqFim){anc=a;break;}
+  }
+  /* 3) recalcula do primeiro registro do período até a cabeça ancorada (ou até onde houver) */
+  const alvo=anc?anc.movimentos.cabeca_seq:seqFim;
+  const cadeia=seqIni?await movimentosPorSeq(seqIni,alvo):[];
+  let confere=0, diverge=[], elo=true;
+  for(let i=0;i<cadeia.length;i++){
+    const r=cadeia[i]; r.__canon=textoCanonico(r); r.__calc=await sha256hex(r.__canon);
+    if(r.__calc===r.hash)confere++; else diverge.push(r.seq);
+    if(i>0&&r.hash_anterior!==cadeia[i-1].hash){elo=false;diverge.push(r.seq);}
+  }
+  const ultimo=cadeia[cadeia.length-1];
+  const bateAncora=!!(anc&&ultimo&&ultimo.seq===anc.movimentos.cabeca_seq&&ultimo.__calc===anc.movimentos.cabeca_hash);
+  let ancoraArquivoOk=null;
+  if(anc){
+    const c=Object.assign({},anc); delete c.sha256_deste_registro; delete c.__arquivo;
+    ancoraArquivoOk=(await sha256hex(jsonOrdenado(c)))===anc.sha256_deste_registro;
+  }
+  let banco=null;
+  try{const r=await sb('rpc/verifica_cadeia_movimentos',{method:'POST',body:'{}'});banco=r&&r[0];}catch(e){banco=null;}
+  const integro=!diverge.length&&elo&&(!anc||(bateAncora&&ancoraArquivoOk));
+  return {per,cadeia,anc,confere,diverge,elo,bateAncora,ancoraArquivoOk,banco,integro,seqIni,seqFim,
+    situacao:!integro?'divergencia':(anc?'integro':'preliminar')};
+}
+function pdfLaudo(D,mode,val,L){
+  let y=tituloPdf(D,cabecalhoPdf(D),'LAUDO DE INTEGRIDADE DOS REGISTROS DE MOVIMENTAÇÃO',periodoTexto(mode,val));
+  const par=(t,yy,o)=>{
+    o=o||{}; const size=o.size||10.5, larg=o.larg||174, x=o.x||18;
+    const ls=quebraAfm(t,size,larg,o.font==='F2');
+    ls.forEach((ln,k)=>{
+      yy=D.espaco(yy,6);
+      if(k<ls.length-1)D.txtJust(ln,x,yy,larg,{size:size,font:o.font}); else D.txt(ln,x,yy,{size:size,font:o.font});
+      yy+=size*0.46;
+    });
+    return yy;
+  };
+  const sec=(t,yy)=>{yy=D.espaco(yy+4,20);D.txt(t,18,yy,{size:11,font:'F2'});return yy+6;};
+  const H=h=>String(h||'').slice(0,16)+'...'+String(h||'').slice(-8);
+  y=par('Referente ao documento "Controle de presença e movimentação de pessoal" do mesmo período, gerado no QUANTOCA (sistema de controle de pessoal do '+(CFG.navio||'navio')+'). Este laudo é um documento separado: não altera nem substitui o controle de presença.',y+2);
+  y=sec('1. Objeto',y);
+  y=par('Atestar que os registros de entrada, saída e alteração de status do período acima estão íntegros, isto é, que não foram alterados, apagados nem incluídos fora de ordem depois de gravados, e que isso pode ser conferido por qualquer pessoa, sem depender do navio nem de quem administra o banco de dados.',y);
+  y=sec('2. Resultado',y);
+  const sit={integro:['ÍNTEGRO','Todos os registros conferem e chegam exatamente à âncora gravada fora do banco.'],
+    preliminar:['ÍNTEGRO — PRELIMINAR','Os registros conferem entre si, mas a âncora externa que os cobre ainda não existe (ela é gravada todo dia às 23:00). Gere este laudo de novo amanhã para a versão definitiva.'],
+    divergencia:['DIVERGÊNCIA ENCONTRADA','Há registro cuja conta não fecha. Não use estes registros como prova antes de apurar.']}[L.situacao];
+  y=D.espaco(y,22); D.caixa(18,y,174,16,L.situacao==='divergencia'?0.85:0.93); D.caixa(18,y,174,16);
+  D.txt(sit[0],105,y+6.5,{size:13,font:'F2',align:'center'});
+  D.txt(sit[1].length>95?sit[1].slice(0,95)+'...':sit[1],105,y+12.5,{size:9,align:'center'}); y+=21;
+  if(sit[1].length>95)y=par(sit[1],y,{size:9.5});
+  const a=L.anc;
+  y=D.tabela({x:18,y,larguras:[70,104],cabecalho:['Verificação','Resultado'],size:9.5,linhas:[
+    ['Registros do período',L.per.length?(L.per.length+' registro(s), nº '+L.seqIni+' a '+L.seqFim):('nenhum registro; último registro anterior: nº '+L.seqFim)],
+    ['SHA-256 refeito neste aparelho',L.confere+' de '+L.cadeia.length+' conferem'+(L.diverge.length?(' · divergem: nº '+[...new Set(L.diverge)].join(', ')):'')],
+    ['Encadeamento (cada registro aponta o anterior)',L.elo?'íntegro do nº '+(L.cadeia[0]?L.cadeia[0].seq:'—')+' ao nº '+(L.cadeia.length?L.cadeia[L.cadeia.length-1].seq:'—'):'QUEBRADO'],
+    ['Âncora externa (GitHub + OpenTimestamps)',a?('arquivo '+a.__arquivo+', gravado em '+new Date(a.registrado_em_utc).toLocaleString('pt-BR')+' · cabeça nº '+a.movimentos.cabeca_seq+' · '+(L.bateAncora?'a cadeia refeita chega exatamente a ela':'NÃO CONFERE')):'ainda não existe âncora que cubra o período'],
+    ['Registro da âncora (SHA-256 do arquivo)',a?(L.ancoraArquivoOk?'confere: '+H(a.sha256_deste_registro):'NÃO CONFERE'):'—'],
+    ['Conferência completa no banco',L.banco?((L.banco.integra?'íntegra':'QUEBRADA no nº '+L.banco.primeiro_quebrado)+' · '+L.banco.total+' registros desde o início'):'não foi possível consultar'],
+  ]});
+  y=sec('3. Como conferir de forma independente',y+4);
+  [ '3.1 Âncora: em '+ANCORA_WEB+' estão os arquivos de cada dia (.json) e o carimbo público (.ots). Com o programa gratuito OpenTimestamps (pip install opentimestamps-client), o comando "ots verify '+(a?a.__arquivo.split('/')[1]:'AAAA-MM-DD.json')+'.ots" mostra em que data, segundo o Bitcoin, aquele arquivo já existia. Ninguém consegue alterar esse registro depois.',
+    '3.2 Registros: no Anexo B está, para cada registro, o texto exato que entra na conta. Junte as linhas de cada registro sem espaço e calcule o SHA-256 (qualquer calculadora de SHA-256): o resultado tem de ser o hash do Anexo A. O texto começa pelo hash do registro anterior, por isso cada registro "prende" todos os que vieram antes.',
+    '3.3 Fechamento: o hash do último registro do Anexo A tem de ser igual à "cabeca_hash" gravada na âncora. Se um único caractere de qualquer registro do período tivesse sido mudado depois, essa igualdade não aconteceria.',
+    '3.4 Formato do texto: hash anterior | nº | identificador | data e hora UTC | militar | posto | NIP | nome completo | nome de guerra | quadro | OM | ação | motivo | registrado por | observação.'
+  ].forEach(t=>{y=par(t,y,{size:9.5});y+=1.5;});
+  y=sec('4. Registros do período',y+2);
+  const mov=L.per.map(r=>[String(r.seq),new Date(r.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    (r.posto||'')+' '+(r.nome||''),r.acao==='saida'?'Saída':(r.acao==='entrada'?'Entrada':'Alt. status'),r.motivo||'—',r.por||'—']);
+  y=D.tabela({x:18,y,larguras:[13,25,40,20,30,46],size:8.5,cabecalho:['Nº','Data e hora','Militar','Movimento','Motivo','Registrado por'],
+    linhas:mov.length?mov:[['—','—','Nenhum registro no período.','—','—','—']],centralizar:[0,1,3]});
+  if(y+6+52>PGH-25){D.novaPagina();y=16;}   /* linha de geração e assinatura ficam juntas */
+  y=par('Gerado no QUANTOCA em '+new Date().toLocaleString('pt-BR')+(MODO==='conta'?' por '+nomePerfil():'')+'. A conferência foi refeita neste aparelho no momento da geração.',y+6,{size:9});
+  assinaturaPdf(D,y);
+  /* Anexo A: hashes completos */
+  D.novaPagina(); y=22;
+  D.txt('ANEXO A',105,y,{size:11,font:'F2',align:'center'}); y+=5.5;
+  D.txt('Hashes de cada registro (SHA-256)',105,y,{size:11,font:'F2',align:'center'}); y+=8;
+  y=par('Do primeiro registro do período até o último coberto pela âncora. "Anterior" é o hash do registro de número imediatamente menor.',y,{size:9});
+  L.cadeia.forEach(r=>{
+    const la=quebraDura('anterior: '+(r.hash_anterior||'(início)'),7.5,170), lh=quebraDura('hash:     '+r.hash,7.5,170);
+    y=D.espaco(y,(la.length+lh.length)*3.4+4);
+    D.txt('Nº '+r.seq+(r.seq>=L.seqIni&&r.seq<=L.seqFim&&L.per.length?' (período)':' (posterior, até a âncora)'),18,y,{size:8,font:'F2'}); y+=3.6;
+    la.concat(lh).forEach(ln=>{D.txt(ln,22,y,{size:7.5});y+=3.4;}); y+=1.2;
+  });
+  /* Anexo B: textos canônicos */
+  D.novaPagina(); y=22;
+  D.txt('ANEXO B',105,y,{size:11,font:'F2',align:'center'}); y+=5.5;
+  D.txt('Texto exato de cada registro (entra no SHA-256)',105,y,{size:11,font:'F2',align:'center'}); y+=8;
+  y=par('Cada registro pode ocupar mais de uma linha: junte as linhas sem espaço entre elas. As barras verticais (|) fazem parte do texto.',y,{size:9});
+  L.cadeia.forEach(r=>{
+    const lt=quebraDura(r.__canon,7.5,170);
+    y=D.espaco(y,lt.length*3.4+5);
+    D.txt('Nº '+r.seq,18,y,{size:8,font:'F2'}); y+=3.6;
+    lt.forEach(ln=>{D.txt(ln,22,y,{size:7.5});y+=3.4;}); y+=1.2;
+  });
+}
+$('#btnLaudo').onclick=async()=>{
+  const mode=$('#xMode').value, val=mode==='dia'?$('#xDay').value:$('#xMonth').value;
+  if(!val){toast('Escolha o período.',true);return;}
+  const btn=$('#btnLaudo'), rot=btn.textContent;
+  btn.disabled=true;btn.textContent='Conferindo os registros…';
+  try{
+    const L=await montaLaudo(mode,val);
+    const D=new Pdf(); pdfLaudo(D,mode,val,L); D.numerar();
+    entregarPdf(D.bytes(),'laudo-integridade-'+val+'.pdf');
+    toast(L.situacao==='integro'?'Laudo gerado: registros íntegros.':L.situacao==='preliminar'?'Laudo preliminar: a âncora desta noite ainda não existe.':'Atenção: o laudo encontrou divergência.',L.situacao==='divergencia');
+  }catch(err){
+    toast('Falhou ao montar o laudo: '+(err&&err.message?err.message:'erro'),true);
+  }finally{btn.disabled=false;btn.textContent=rot;}
+};
+
 function entregarPdf(bytes,nome){
   let url='';
   try{
