@@ -1,0 +1,44 @@
+# Âncora diária: grava fora do Supabase a cabeça das cadeias de registros e carimba no
+# OpenTimestamps. Roda às 23:00 de Belém/Brasília (02:00 UTC) e também quando este
+# arquivo ou o script mudam. Ver ancoras/LEIA-ME.md.
+name: Ancora diaria das cadeias
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ["ancoras/ancora.py", ".github/workflows/ancora.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: ancora
+  cancel-in-progress: false
+jobs:
+  ancora:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instala o cliente do OpenTimestamps
+        run: pip install --quiet opentimestamps-client
+      - name: Consulta as cadeias e grava a ancora do dia
+        id: anc
+        run: echo "arquivo=$(python ancoras/ancora.py)" >> "$GITHUB_OUTPUT"
+      - name: Carimbo publico (OpenTimestamps)
+        run: |
+          f="${{ steps.anc.outputs.arquivo }}"
+          rm -f "$f.ots"
+          ots stamp "$f"
+          # completa os carimbos dos dias anteriores (o Bitcoin confirma em algumas horas)
+          for o in ancoras/*/*.ots; do ots upgrade "$o" >/dev/null 2>&1 || true; done
+          rm -f ancoras/*/*.bak
+      - name: Grava no repositorio
+        run: |
+          git config user.name "ancora-automatica"
+          git config user.email "ancora@users.noreply.github.com"
+          git add ancoras
+          git diff --cached --quiet || git commit -m "Ancora de $(TZ=America/Belem date +%d/%m/%Y): cabecas das cadeias + carimbo OpenTimestamps"
+          git push
