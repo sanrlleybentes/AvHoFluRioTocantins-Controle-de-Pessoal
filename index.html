@@ -1107,7 +1107,30 @@ function entrou(modo){
   MODO=modo; ME=ME||meuRotulo();
   faixaSessao();
   const b=$('.tabs button[aria-selected="true"]'); TAB=b?b.dataset.tab:'quadro';
-  liberaTab(); render(); gFecha();
+  liberaTab(); if(CREW)render(); gFecha();   /* sem o quadro carregado, quem desenha é o load() */
+}
+/* O toque na abertura não pode esperar a internet do rio. Quem já tem sessão e perfil guardados
+   neste aparelho entra NA HORA com eles, e o servidor confere em segundo plano. Só muda o que
+   aparece na tela: toda gravação continua conferida no servidor. Sessão vencida: avisa e volta
+   ao portão. */
+function recarrega(){location.reload();}
+async function confereEmSegundoPlano(){
+  try{
+    const p=await acessoChama('eu');
+    if(p.status!=='aprovado'){sessaoGuarda(null);lsGrava(PERFIL_KEY,null);recarrega();return;}
+    PERFIL=p; lsGrava(PERFIL_KEY,p);
+    await carregaRapido();
+    faixaSessao(); liberaTab(); if(CREW)render();
+  }catch(e){
+    if(e.status===401||e.status===403){
+      sessaoGuarda(null); lsGrava(PERFIL_KEY,null);
+      toast('Sua sessão venceu. Entre de novo.',true); setTimeout(recarrega,1800);
+    }                                     /* sem rede ou erro do servidor: segue com o que tem */
+  }
+}
+function entradaPeloGuardado(guardado){
+  PERFIL=guardado; RAPIDO=lsLe(RAPIDO_KEY)||[];
+  entrou('conta'); confereEmSegundoPlano();
 }
 async function entraComConta(daSessaoGuardada){
   try{ PERFIL=await acessoChama('eu'); lsGrava(PERFIL_KEY,PERFIL); }
@@ -1126,6 +1149,12 @@ async function entraComConta(daSessaoGuardada){
   entrou('conta'); return true;
 }
 async function entraRapido(){
+  const guardado=lsLe(RAPIDO_KEY);
+  if(guardado){        /* já conhece o que o ADMIN liberou: entra na hora e atualiza em segundo plano */
+    RAPIDO=guardado; entrou('rapido');
+    carregaRapido().then(()=>{ if(MODO==='rapido'){faixaSessao();liberaTab();} });
+    return;
+  }
   gOcupado('#gRapido',true);
   await carregaRapido();
   gOcupado('#gRapido',false);
@@ -1198,8 +1227,11 @@ async function entraRapido(){
     gOcupado('#senSalvar',false);
   };
   /* abertura: quem tem sessão guardada pula a animação; os demais veem ~2 s de abertura */
-  if(SESSAO){ GQ().classList.add('check'); entraComConta(true); }
-  else{
+  if(SESSAO){
+    const g=lsLe(PERFIL_KEY);
+    if(g&&g.status==='aprovado'){ entradaPeloGuardado(g); }          /* pula tudo: nada de esperar a rede */
+    else{ GQ().classList.add('check'); entraComConta(true); }
+  }else{
     GQ().classList.remove('check'); GQ().classList.add('intro');
     let ja=false; const vai=()=>{if(ja)return;ja=true;gMostra();};
     setTimeout(vai,2000); GQ().addEventListener('click',e=>{if(!e.target.closest('.gate'))vai();});
