@@ -1,0 +1,21 @@
+{
+ "conferido_no_banco_em": "2026-10-05T08:04:08.548Z",
+ "data_local": "2026-10-05",
+ "movimentos": {
+  "cabeca_hash": "4a3e331e185fc2aad48ed5edec8b4889e4dc1fa210cc9b4acfcb27355d426491",
+  "cabeca_seq": 1800,
+  "integra": true,
+  "primeiro_quebrado": null,
+  "total": 1800
+ },
+ "rastro": {
+  "cabeca_hash": "e693c68da1bc6e6bf321a8f2f623a0a13a7c1396e3c29cdc38a5232350431318",
+  "cabeca_seq": 117,
+  "integra": true,
+  "primeiro_quebrado": null,
+  "total": 117
+ },
+ "registrado_em_utc": "2026-10-05T08:04:08Z",
+ "sha256_deste_registro": "32e91882a06952d556358165b0f6ab54fb7b0a54bf1b9e2c8807c717472e8744",
+ "sistema": "SIGAB/QUANTOCA — AvHoFlu Rio Tocantins (H-12)"
+}
